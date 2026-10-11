@@ -12,9 +12,15 @@ class TaskController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Task::all();
+        // return Task::all();
+        $q = $request->query('q', '');
+        $perPage = $request->query('per_page', 10);
+
+        return Task::where('title', 'like', "%{$q}%")
+            ->orderBy('id')
+            ->paginate($perPage);
     }
 
     /**
