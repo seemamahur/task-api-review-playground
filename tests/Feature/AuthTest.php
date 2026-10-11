@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthTest extends TestCase
 {
@@ -21,6 +22,39 @@ class AuthTest extends TestCase
 
 
     use RefreshDatabase;
+
+    public function test_quotes_in_name_and_email_are_stored_safely(): void
+    {
+        $payload = [
+            'name'     => "Robert'); DROP TABLE users;--",
+            'email'    => "o'brien@example.com",
+            'password' => 'secret123',
+        ];
+
+        $this->postJson('/api/register', $payload)->assertCreated();
+        $this->assertDatabaseHas('users', ['name' => $payload['name'], 'email' => $payload['email']]);
+
+        $this->postJson('/api/login', ['email' => $payload['email'], 'password' => 'secret123'])
+            ->assertOk()
+            ->assertJsonStructure(['token']);
+    }
+
+    public function test_tasks_require_authentication(): void
+    {
+        $this->getJson('/api/tasks')->assertUnauthorized();
+    }
+
+    public function test_login_token_has_expiry(): void
+    {
+        $this->postJson('/api/register', [
+            'name' => 'Tester',
+            'email' => 't@example.com',
+            'password' => 'secret123',
+        ]);
+        $this->postJson('/api/login', ['email' => 't@example.com', 'password' => 'secret123']);
+
+        $this->assertNotNull(PersonalAccessToken::first()->expires_at);
+    }
 
     public function test_register_and_login(): void
     {

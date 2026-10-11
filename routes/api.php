@@ -10,6 +10,8 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
-Route::apiResource('tasks', TaskController::class);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('tasks', TaskController::class);
+});
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
