@@ -2,59 +2,52 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreTaskRequest;
+use App\Http\Requests\UpdateTaskRequest;
+use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 
 class TaskController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return Task::all();
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
+        $params = $request->validate([
+            'q'        => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        return response()->json(Task::create($data), 201);
+        $q = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $params['q'] ?? '');
+
+        return TaskResource::collection(
+            Task::where('title', 'like', "%{$q}%")
+                ->orderBy('id')
+                ->paginate($params['per_page'] ?? 10)
+        );
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Task $task)
+    public function store(StoreTaskRequest $request): JsonResponse
     {
-        return $task;
+        $task = Task::create($request->validated());
+
+        return (new TaskResource($task))->response()->setStatusCode(201);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Task $task)
+    public function show(Task $task): TaskResource
     {
-        $data = $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'done'  => 'sometimes|boolean',
-        ]);
-
-        $task->update($data);
-
-        return $task;
+        return new TaskResource($task);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+    public function update(UpdateTaskRequest $request, Task $task): TaskResource
+    {
+        $task->update($request->validated());
+
+        return new TaskResource($task);
+    }
+
     public function destroy(Task $task)
     {
         $task->delete();
