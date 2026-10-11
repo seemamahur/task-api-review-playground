@@ -4,31 +4,43 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $hashed = md5($request->password);
-        $now = date('Y-m-d H:i:s');
+        $data = $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:8|max:128',
+        ]);
 
-        DB::insert("INSERT INTO users (name, email, password, created_at, updated_at)
-                    VALUES ('{$request->name}', '{$request->email}', '{$hashed}', '{$now}', '{$now}')");
+        $user = User::create([
+            'name'     => $data['name'],
+            'email'    => $data['email'],
+            'password' => Hash::make($data['password']),
+        ]);
 
-        return response()->json(['status' => 'registered'], 201);
+        return response()->json(['id' => $user->id, 'email' => $user->email], 201);
     }
 
     public function login(Request $request)
     {
-        $hashed = md5($request->password);
+        $data = $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required|string',
+        ]);
 
-        $user = DB::select("SELECT * FROM users
-                            WHERE email = '{$request->email}' AND password = '{$hashed}'");
+        $user = User::where('email', $data['email'])->first();
 
-        if ($user) {
-            return response()->json(['status' => 'ok']);
+        if (! $user || ! Hash::check($data['password'], $user->password)) {
+            return response()->json(['error' => 'invalid credentials'], 401);
         }
 
-        return response()->json(['error' => 'invalid credentials'], 401);
+        return response()->json([
+            'token' => $user->createToken('api')->plainTextToken,
+        ]);
     }
 }
