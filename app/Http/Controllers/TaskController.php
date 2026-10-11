@@ -9,39 +9,31 @@ use Illuminate\Http\JsonResponse;
 
 class TaskController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        return Task::all();
+        return $request->user()->tasks()->orderBy('id')->get();
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
             'title' => 'required|string|max:255',
         ]);
 
-        return response()->json(Task::create($data), 201);
+        return response()->json($request->user()->tasks()->create($data), 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Task $task)
+    public function show(Request $request, Task $task)
     {
+        $this->ensureOwner($request, $task);
+
         return $task;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Task $task)
     {
+        $this->ensureOwner($request, $task);
+
         $data = $request->validate([
             'title' => 'sometimes|string|max:255',
             'done'  => 'sometimes|boolean',
@@ -52,13 +44,17 @@ class TaskController extends Controller
         return $task;
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Task $task)
+    public function destroy(Request $request, Task $task)
     {
+        $this->ensureOwner($request, $task);
         $task->delete();
 
         return response()->noContent();
+    }
+
+    // 404 (not 403) so other users can't tell whether a task id exists.
+    private function ensureOwner(Request $request, Task $task): void
+    {
+        abort_if($task->user_id !== $request->user()->id, 404);
     }
 }

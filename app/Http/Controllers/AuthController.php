@@ -44,8 +44,8 @@ class AuthController extends Controller
             return response()->json(['error' => 'invalid credentials'], 401);
         }
 
-        // Remove old tokens so they don't pile up, and expire the new one in 24 hours.
-        $user->tokens()->where('name', 'api')->delete();
+        // Remove only expired tokens; active sessions on other devices stay valid.
+        $user->tokens()->where('expires_at', '<', now())->delete();
 
         return response()->json([
             'token' => $user->createToken('api', ['*'], now()->addDay())->plainTextToken,
