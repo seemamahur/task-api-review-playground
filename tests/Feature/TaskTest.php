@@ -31,6 +31,19 @@ class TaskTest extends TestCase
     {
         $this->getJson('/api/tasks/999')->assertNotFound();
     }
+
+    public function test_search_and_pagination(): void
+    {
+        foreach (['alpha', 'beta', 'alphabet'] as $title) {
+            Task::create(['title' => $title]);
+        }
+
+        $this->getJson('/api/tasks?q=alpha&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonCount(1, 'data');
+    }
+
     // public function test_example(): void
     // {
     //     $response = $this->get('/');
